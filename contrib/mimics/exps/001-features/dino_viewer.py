@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.2"
+__generated_with = "0.23.11"
 app = marimo.App(width="full")
 
 
@@ -22,15 +22,21 @@ def _():
     import saev.data.models
     import saev.viz
 
+    from sklearn import linear_model
+    from sklearn.metrics import mean_squared_error, r2_score
+
     return (
         Image,
         apply_grouping,
+        linear_model,
         load_image_labels,
         make_seg,
+        mean_squared_error,
         mo,
         np,
         pathlib,
         pl,
+        r2_score,
         saev,
         scipy,
         tp,
@@ -39,31 +45,51 @@ def _():
 
 @app.cell
 def _(pathlib):
-    run_root_dpath = pathlib.Path("/fs/ess/PAS2136/samuelstevens/saev/runs")
+    run_root_dpath = pathlib.Path("/fs/ess/PAS2136/jbeattie/saev/runs")
     shards_dpath = pathlib.Path(
-        "/fs/scratch/PAS2136/samuelstevens/saev/shards/a6be28a1"
+        "/fs/scratch/PAS2136/jbeattie/saev/shards/93a3db75/"
     )
-    shard_id = "a6be28a1"
+
+    shard_id = "93a3db75"
 
     all_run_ids = [
-        "u9i54ybv",
-        "4gi47eoy",
-        "iifhcp9z",
-        "1pwpq6ue",
-        "oqm8s8sq",
-        "zgsifqrc",
-        "kmlavddy",
-        "qohobmx1",
-        "uu4l9a1c",
-        "qpsn8p39",
-        "yo4x94aj",
-        "nn46e0xn",
-        "7yhyyxim",
-        "7ywv33hl",
-        "37yshx8v",
-        "d9wkqlds",
+            # Layer 21, k=16
+            'vnycpqlu', 
+            # Layer 21, k=32
+            'nw11ywf5', 
+            # Layer 21, k=64
+            '6se2d0jo', 
+            # Layer 21, k=128
+            '25ma6cta', 
+            # Layer 23, k=16
+            '3rbr8lbq', 
+            # Layer 23, k=32
+            'mblk8qj9', 
+            # Layer 23, k=64
+            'ap6fx1xz', 
+            # Layer 23, k=128
+            '9la0oibn'
     ]
-    return all_run_ids, run_root_dpath, shard_id, shards_dpath
+
+    run_metadata = {
+        # Layer 21, k=16
+        'vnycpqlu': {'layer': 21, 'k': 16},
+        # Layer 21, k=32
+        'nw11ywf5': {'layer': 21, 'k': 32},
+        # Layer 21, k=64
+        '6se2d0jo': {'layer': 21, 'k': 64},
+        # Layer 21, k=128
+        '25ma6cta': {'layer': 21, 'k': 128},
+        # Layer 23, k=16
+        '3rbr8lbq': {'layer': 23, 'k': 16},
+        # Layer 23, k=32
+        'mblk8qj9': {'layer': 23, 'k': 32},
+        # Layer 23, k=64
+        'ap6fx1xz': {'layer': 23, 'k': 64},
+        # Layer 23, k=128
+        '9la0oibn': {'layer': 23, 'k': 128},
+    }
+    return all_run_ids, run_metadata, run_root_dpath, shard_id, shards_dpath
 
 
 @app.cell
@@ -121,7 +147,6 @@ def _(mo, pl, scores_df, task_dropdown):
 
     feature_table = mo.ui.table(
         filtered_df
-        .head(200)
         .select(
             "run_id",
             "feature_id",
@@ -132,13 +157,233 @@ def _(mo, pl, scores_df, task_dropdown):
             "support_melpomene",
             "mean_act_erato",
             "mean_act_melpomene",
+            "w1_act",
+            "w1_firing"
         )
         .to_pandas(),
         selection="single",
         label="Top features by selectivity",
     )
     feature_table
-    return (feature_table,)
+    return feature_table, filtered_df
+
+
+@app.cell
+def _(filtered_df):
+    random_sample_df = filtered_df
+    random_sample_df["w1_act"].max()
+    return (random_sample_df,)
+
+
+@app.cell
+def _(
+    filtered_df,
+    linear_model,
+    mean_squared_error,
+    r2_score,
+    random_sample_df,
+):
+    import matplotlib.pyplot as plt
+    w1_dist_fig = plt.figure()
+    plt.yscale("log")
+    plt.title("W1 distance distribution")
+    plt.xlabel("W1")
+    plt.ylabel("count")
+    plt.hist(filtered_df["w1_act"])
+
+
+
+    _regr = linear_model.LinearRegression()
+    _regr.fit(random_sample_df["w1_act"].reshape((-1, 1)), random_sample_df["selectivity"].reshape((-1, 1)))
+    w1_y = _regr.predict(random_sample_df["w1_act"].to_numpy().reshape((-1, 1)))
+
+    print("Coefficients: \n", _regr.coef_)
+    print("Mean squared error: %.5f" % mean_squared_error(random_sample_df["selectivity"].reshape((-1, 1)), w1_y))
+    print("Coefficient of determination: %.5f" % r2_score(random_sample_df["selectivity"].reshape((-1, 1)), w1_y))
+
+
+
+    w1_selectivity_fig = plt.figure(figsize=(5, 5), dpi=1000)
+    plt.scatter(x = random_sample_df["w1_act"], y = random_sample_df["selectivity"])
+
+    plt.plot([random_sample_df["w1_act"].min(), random_sample_df["w1_act"].max()], [w1_y.min(), w1_y.max()], linestyle="--", color="red", linewidth=2)
+    plt.xlabel("W1")
+    plt.ylabel("Selectivity")
+    plt.title("W1 vs Selectivity")
+
+    #mo.hstack([w1_dist_fig, w1_selectivity_fig])
+    w1_selectivity_fig
+    return (plt,)
+
+
+@app.cell
+def _(
+    all_run_ids,
+    linear_model,
+    mean_squared_error,
+    np,
+    pl,
+    plt,
+    r2_score,
+    run_metadata,
+    scores_df,
+):
+
+
+    k = 10
+    fw = 3
+    fh = 3
+    figpad = 15
+
+    tasks_of_interest = [
+      "cyrbia_dorsal_vs_cythera_dorsal",
+      #"cyrbia_ventral_vs_cythera_ventral",
+      "lativitta_dorsal_vs_malleti_dorsal",
+      #"lativitta_ventral_vs_malleti_ventral",
+      "notabilis_dorsal_vs_plesseni_dorsal",
+      #"notabilis_ventral_vs_plesseni_ventral",
+      #"ssp.nov.P_dorsal_vs_malleti_dorsal",
+      #"ssp.nov.P_ventral_vs_malleti_ventral",
+    ]
+
+    top_k_selectivity_dfs = {id: scores_df.filter(pl.col("run_id") == id).filter(pl.col("task").is_in(tasks_of_interest)).sort(by='selectivity', descending=True).group_by("task").head(k) for id in all_run_ids}
+    top_k_w1_act_dfs = {id: scores_df.filter(pl.col("run_id") == id).filter(pl.col("task").is_in(tasks_of_interest)).sort(by='w1_act', descending=True).group_by('task').head(k) for id in all_run_ids}
+
+    for id in all_run_ids:
+        top_k_selectivity_dfs[id] = top_k_selectivity_dfs[id].with_columns(k = pl.lit(run_metadata[id]['k']), layer = pl.lit(run_metadata[id]['layer']))
+        top_k_w1_act_dfs[id] = top_k_w1_act_dfs[id].with_columns(k = pl.lit(run_metadata[id]['k']), layer = pl.lit(run_metadata[id]['layer']))
+
+    ### SELECTIVITY 
+    top_k_select_fig_21 = plt.figure(dpi=1000, figsize=(fw, fh))
+    plt.tight_layout()
+    plt.title(f"Selectivity vs k in Layer 21 @ {k}", pad=figpad)
+    plt.ylabel("Selectivity")
+    plt.xlabel("k")
+    plt.ylim(bottom=0.4, top=1)
+    plt.xticks([16, 32, 64, 128])
+
+    reg_x = []
+    reg_y = []
+    labels = []
+    for id in all_run_ids:
+        if int(top_k_selectivity_dfs[id]['layer'][0]) !=  21:
+            continue
+        reg_x.extend(list(top_k_selectivity_dfs[id]['k']))
+        reg_y.extend(list(top_k_selectivity_dfs[id]['selectivity']))
+        labels.extend(list(top_k_selectivity_dfs[id]['task']))
+    plt.scatter(reg_x, reg_y, alpha = 0.8)
+
+    regr = linear_model.LinearRegression()
+    regr.fit(np.array(reg_x).reshape(-1, 1), np.array(reg_y).reshape(-1, 1))
+    pred_y = regr.predict(np.array(reg_x).reshape(-1, 1))
+
+    # The coefficients
+    print("Coefficients: \n", regr.coef_)
+    # The mean squared error
+    print("Mean squared error: %.5f" % mean_squared_error(reg_y, pred_y))
+    # The coefficient of determination: 1 is perfect prediction
+    print("Coefficient of determination: %.5f" % r2_score(reg_y, pred_y))
+
+    plt.plot(reg_x, pred_y, linestyle="--", linewidth=2)
+
+    plt.savefig(f"./figures/selectivity_vs_k_21_at_{k}.png", bbox_inches="tight")
+
+    top_k_select_fig_23 = plt.figure(dpi=1000, figsize=(fw, fh))
+    plt.title(f"Selectivity vs k in Layer 23 @ {k}", pad=figpad)
+    plt.ylabel("Selectivity")
+    plt.xlabel("k")
+    plt.ylim(bottom=0.4, top=1)
+    plt.xticks([16, 32, 64, 128])
+
+    reg_x = []
+    reg_y = []
+    for id in all_run_ids:
+        if int(top_k_selectivity_dfs[id]['layer'][0]) !=  23:
+            continue
+
+        reg_x.extend(list(top_k_selectivity_dfs[id]['k']))
+        reg_y.extend(list(top_k_selectivity_dfs[id]['selectivity']))
+
+    plt.scatter(reg_x, reg_y, alpha = 0.8)
+
+    regr = linear_model.LinearRegression()
+    regr.fit(np.array(reg_x).reshape(-1, 1), np.array(reg_y).reshape(-1, 1))
+    pred_y = regr.predict(np.array(reg_x).reshape(-1, 1))
+
+    # The coefficients
+    print("Coefficients: \n", regr.coef_)
+    # The mean squared error
+    print("Mean squared error: %.5f" % mean_squared_error(reg_y, pred_y))
+    # The coefficient of determination: 1 is perfect prediction
+    print("Coefficient of determination: %.5f" % r2_score(reg_y, pred_y))
+
+    plt.plot(reg_x, pred_y, linestyle="--", linewidth=2)
+    plt.savefig(f"./figures/selectivity_vs_k_23_at_{k}.png", bbox_inches="tight")
+
+
+    ### W1 ACT
+
+    top_k_w1_fig_21 = plt.figure(dpi=1000, figsize=(fw, fh))
+    plt.title(f"W1 Distance vs k in Layer 21 @ {k}", pad=figpad)
+    plt.ylabel("W1")
+    plt.xlabel("k")
+    plt.xticks([16, 32, 64, 128])
+
+    reg_x = []
+    reg_y = []
+    for id in all_run_ids:
+        if int(top_k_w1_act_dfs[id]['layer'][0]) !=  21:
+            continue
+        reg_x.extend(list(top_k_w1_act_dfs[id]['k']))
+        reg_y.extend(list(top_k_w1_act_dfs[id]['w1_act']))
+    plt.scatter(reg_x, reg_y, alpha = 0.8)
+
+    regr = linear_model.LinearRegression()
+    regr.fit(np.array(reg_x).reshape(-1, 1), np.array(reg_y).reshape(-1, 1))
+    pred_y = regr.predict(np.array(reg_x).reshape(-1, 1))
+
+    # The coefficients
+    print("Coefficients: \n", regr.coef_)
+    # The mean squared error
+    print("Mean squared error: %.5f" % mean_squared_error(reg_y, pred_y))
+    # The coefficient of determination: 1 is perfect prediction
+    print("Coefficient of determination: %.5f" % r2_score(reg_y, pred_y))
+
+    plt.plot(reg_x, pred_y, linestyle="--", linewidth=2)
+
+    plt.savefig(f"./figures/w1_act_vs_k_21_at_{k}.png", bbox_inches="tight")
+
+    top_k_w1_fig_23 = plt.figure(dpi=1000, figsize=(fw, fh))
+    plt.title(f"W1 Distance vs k in Layer 23 @ {k}", pad=figpad)
+    plt.ylabel("W1")
+    plt.xlabel("k")
+    plt.xticks([16, 32, 64, 128])
+
+    reg_x = []
+    reg_y = []
+    for id in all_run_ids:
+        if int(top_k_w1_act_dfs[id]['layer'][0]) !=  23:
+            continue
+        reg_x.extend(list(top_k_w1_act_dfs[id]['k']))
+        reg_y.extend(list(top_k_w1_act_dfs[id]['w1_act']))
+    plt.scatter(reg_x, reg_y, alpha = 0.8)
+
+    regr = linear_model.LinearRegression()
+    regr.fit(np.array(reg_x).reshape(-1, 1), np.array(reg_y).reshape(-1, 1))
+    pred_y = regr.predict(np.array(reg_x).reshape(-1, 1))
+
+    # The coefficients
+    print("Coefficients: \n", regr.coef_)
+    # The mean squared error
+    print("Mean squared error: %.5f" % mean_squared_error(reg_y, pred_y))
+    # The coefficient of determination: 1 is perfect prediction
+    print("Coefficient of determination: %.5f" % r2_score(reg_y, pred_y))
+
+    plt.plot(reg_x, pred_y, linestyle="--", linewidth=2)
+    plt.savefig(f"./figures/w1_act_vs_k_23_at_{k}.png", bbox_inches="tight")
+
+    #mo.vstack([mo.hstack([top_k_select_fig_21, top_k_select_fig_23]), mo.hstack([top_k_w1_fig_21, top_k_w1_fig_23]),])
+    return
 
 
 @app.cell
@@ -262,6 +507,7 @@ def _(
 
     _inc_acts = _by_image[include_mask]
     _inc_max = _max_acts[include_mask]
+    inc_max_acts = _inc_max
     _inc_i = np.where(include_mask)[0]
 
     _n = n_per_class_slider.value
@@ -383,6 +629,31 @@ def _(
         mo.md(f"### Melpomene Bottom {len(_m_bot)}"),
         _build_grid(_m_bot, melp_class_mask),
     ])
+    return (inc_max_acts,)
+
+
+@app.cell
+def _(
+    erato_class_mask,
+    inc_max_acts,
+    melp_class_mask,
+    plt,
+    selected_feature_id,
+):
+    plt.figure(figsize=(3, 3), dpi=1000)
+    #plt.yscale('log')
+    plt.title(f"Feature {selected_feature_id} Max Activations")
+    plt.xlabel("Activation Value")
+    plt.ylabel("Count")
+    plt.hist(inc_max_acts[melp_class_mask], alpha=0.6, label="Melpomene")
+    plt.hist(inc_max_acts[erato_class_mask], alpha=0.6, label="Erato")
+
+    plt.legend()
+    return
+
+
+@app.cell
+def _():
     return
 
 

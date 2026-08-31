@@ -4,7 +4,19 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "adjusttext>=1.3.0",
+    "marimo>=0.24.0",
+    "matplotlib>=3.11.1",
+    "polars>=1.44.1",
+    "saev",
+    "trait-discovery",
+    "wandb>=0.22.0",
+]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+trait-discovery = { workspace = true }
+saev = { workspace = true }

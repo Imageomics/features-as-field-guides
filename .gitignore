@@ -58,3 +58,6 @@ contrib/*/docs/papers/*/*/social/
 *.run.xml
 *-blx.bib
 *.brf
+
+# Misc.
+.locks

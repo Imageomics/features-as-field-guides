@@ -19,10 +19,11 @@ DEFAULT_PAIR_SPECS = [
     "demophoon:rosina",
     "phyllis:nanna",
     "erato:thelxiopeia",
+    "ssp.nov.P:malleti",
 ]
 DEFAULT_VIEWS = ["dorsal", "ventral"]
 TASK_NAME_RE = re.compile(
-    r"^(?P<erato>[a-zA-Z0-9]+)_(?P<view_a>[a-zA-Z0-9]+)_vs_(?P<melp>[a-zA-Z0-9]+)_(?P<view_b>[a-zA-Z0-9]+)$"
+    r"^(?P<erato>[a-zA-Z0-9.]+)_(?P<view_a>[a-zA-Z0-9]+)_vs_(?P<melp>[a-zA-Z0-9.]+)_(?P<view_b>[a-zA-Z0-9]+)$"
 )
 
 

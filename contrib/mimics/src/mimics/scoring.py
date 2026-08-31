@@ -27,6 +27,7 @@ DEFAULT_PAIR_SPECS: list[tuple[str, str]] = [
     ("notabilis", "plesseni"),
     ("hydara", "melpomene"),
     ("venus", "vulcanus"),
+    ("ssp.nov.P", "malleti"),
 ]
 DEFAULT_VIEWS = ["dorsal", "ventral"]
 
@@ -121,6 +122,57 @@ def build_task_specs(
 
 
 @beartype.beartype
+def batch_wasserstein1(e_acts: np.ndarray, m_acts: np.ndarray) -> np.ndarray:
+    """Wasserstein-1 distance per latent between two activation columns.
+
+    Both inputs share the same number of latent columns but may have
+    different row counts per class. Computed as the L1 area between the
+    empirical CDFs over the merged, per-column sorted values.
+    """
+    n_e, d = e_acts.shape
+    n_m = m_acts.shape[0]
+    combined = np.concatenate([e_acts, m_acts], axis=0)
+    n_total = n_e + n_m
+    order = np.argsort(combined, axis=0)
+    z = np.take_along_axis(combined, order, axis=0)
+    is_e = order < n_e
+    row = np.arange(1, n_total + 1)[:, None]
+    cum_e = np.cumsum(is_e, axis=0)
+    fe = cum_e / n_e
+    fm = (row - cum_e) / n_m
+    dz = np.diff(z, axis=0)
+    return (np.abs(fe - fm)[:-1] * dz).sum(axis=0)
+
+
+@beartype.beartype
+def firing_wasserstein1(e_acts: np.ndarray, m_acts: np.ndarray) -> np.ndarray:
+    """Wasserstein-1 distance per latent over firing (>0) activations only.
+
+    NaN for latents where either class has no positive values.
+    """
+    out = np.empty(e_acts.shape[1], dtype=np.float32)
+    for f in range(e_acts.shape[1]):
+        e_pos = e_acts[e_acts[:, f] > 0, f]
+        m_pos = m_acts[m_acts[:, f] > 0, f]
+        if e_pos.size == 0 or m_pos.size == 0:
+            out[f] = np.nan
+            continue
+        combined = np.concatenate([e_pos, m_pos])
+        n_e = e_pos.size
+        n_m = m_pos.size
+        order = np.argsort(combined)
+        z = combined[order]
+        is_e = order < n_e
+        row = np.arange(1, n_e + n_m + 1)
+        cum_e = np.cumsum(is_e)
+        fe = cum_e / n_e
+        fm = (row - cum_e) / n_m
+        dz = np.diff(z)
+        out[f] = (np.abs(fe - fm)[:-1] * dz).sum()
+    return out
+
+
+@beartype.beartype
 def max_pool_csr(
     ta_csr: scipy.sparse.csr_matrix | scipy.sparse.csr_array, n_images: int, tpi: int
 ) -> np.ndarray:
@@ -177,27 +229,38 @@ def score_run(
         e_acts = inc[spec.erato_mask]
         m_acts = inc[spec.melp_mask]
 
-        # AUROC via Mann-Whitney U, chunked for memory.
+        # AUROC via Mann-Whitney U plus Wasserstein-1, chunked for memory.
         auroc = np.empty(d_sae, dtype=np.float32)
+        w1_act = np.empty(d_sae, dtype=np.float32)
+        w1_firing = np.empty(d_sae, dtype=np.float32)
         for fs in range(0, d_sae, feature_chunk):
             fe = min(fs + feature_chunk, d_sae)
-            r = rankdata(inc[:, fs:fe], axis=0)
+            inc_c = inc[:, fs:fe]
+            r = rankdata(inc_c, axis=0)
             ps = r[spec.binary == 1].sum(axis=0)
             auroc[fs:fe] = (ps - spec.n_pos * (spec.n_pos + 1) / 2) / (
                 spec.n_pos * spec.n_neg
             )
+            e_c = inc_c[spec.erato_mask]
+            m_c = inc_c[spec.melp_mask]
+            w1_act[fs:fe] = batch_wasserstein1(e_c, m_c)
+            w1_firing[fs:fe] = firing_wasserstein1(e_c, m_c)
 
         dfs.append(
-            pl.DataFrame({
-                "run_id": [run_id] * d_sae,
-                "task": [spec.name] * d_sae,
-                "feature_id": np.arange(d_sae, dtype=np.int32),
-                "auroc": auroc,
-                "support_erato": (e_acts > 0).mean(axis=0).astype(np.float32),
-                "support_melpomene": (m_acts > 0).mean(axis=0).astype(np.float32),
-                "mean_act_erato": e_acts.mean(axis=0).astype(np.float32),
-                "mean_act_melpomene": m_acts.mean(axis=0).astype(np.float32),
-            })
+            pl.DataFrame(
+                {
+                    "run_id": [run_id] * d_sae,
+                    "task": [spec.name] * d_sae,
+                    "feature_id": np.arange(d_sae, dtype=np.int32),
+                    "auroc": auroc,
+                    "support_erato": (e_acts > 0).mean(axis=0).astype(np.float32),
+                    "support_melpomene": (m_acts > 0).mean(axis=0).astype(np.float32),
+                    "mean_act_erato": e_acts.mean(axis=0).astype(np.float32),
+                    "mean_act_melpomene": m_acts.mean(axis=0).astype(np.float32),
+                    "w1_act": w1_act,
+                    "w1_firing": w1_firing,
+                }
+            )
         )
 
     del ma

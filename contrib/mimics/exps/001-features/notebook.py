@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.2"
+__generated_with = "0.24.0"
 app = marimo.App(width="full")
 
 
@@ -17,7 +17,7 @@ def _():
 
     import saev.colors
 
-    figs_dpath = pathlib.Path("contrib/mimics/exps/002-wider-saes/figs")
+    figs_dpath = pathlib.Path("contrib/mimics/exps/001-features/figs")
     figs_dpath.mkdir(exist_ok=True)
     return adjust_text, figs_dpath, mo, np, pathlib, pl, plt, saev, wandb
 
@@ -34,13 +34,13 @@ def _(mo):
 
 @app.cell
 def _(mo, pl, wandb):
-    tags = ["mimics-16k-384p-v1.6", "mimics-32k-384p-v1.6"]
+    tags = ["mimics-16k-dino-384p-v1.6"]
     # Only consider runs after the W_enc normalization bugfix (2026-03-07T23:30:00Z).
     created_gte = "2026-03-07T23:30:00"
     api = wandb.Api()
     runs = list(
         api.runs(
-            path="samuelstevens/saev",
+            path="<WANDB_USERNAME>/saev",
             filters={
                 "tags": {"$in": tags},
                 "created_at": {"$gte": created_gte},
@@ -82,7 +82,7 @@ def _(mo, pl, wandb):
 @app.cell
 def _(df, pl):
     # Mark Pareto-optimal per (layer, d_sae): sort by L0 ascending, keep cumulative-min NMSE.
-    pareto_df = df.sort("l0", "nmse").with_columns(
+    pareto_df = df.sort("k", "nmse").with_columns(
         (pl.col("nmse") == pl.col("nmse").cum_min().over("layer", "d_sae")).alias(
             "is_pareto"
         )
@@ -124,7 +124,7 @@ def _(adjust_text, figs_dpath, pareto_df, pl, plt, saev):
 
             if _rest.height > 0:
                 _ax.scatter(
-                    _rest.get_column("l0").to_numpy(),
+                    _rest.get_column("k").to_numpy(),
                     _rest.get_column("nmse").to_numpy(),
                     color=_color,
                     marker="o",
@@ -132,7 +132,7 @@ def _(adjust_text, figs_dpath, pareto_df, pl, plt, saev):
                     alpha=0.3,
                 )
 
-            _xs = _pareto.get_column("l0").to_numpy()
+            _xs = _pareto.get_column("k").to_numpy()
             _ys = _pareto.get_column("nmse").to_numpy()
             _label = f"{_width // 1024}K"
             _ax.plot(_xs, _ys, color=_color, marker="o", alpha=0.8, label=_label)
@@ -146,7 +146,7 @@ def _(adjust_text, figs_dpath, pareto_df, pl, plt, saev):
         _ax.set_xlabel("L0")
         _ax.set_ylabel("NMSE")
         _ax.set_xscale("log")
-        _ax.set_yscale("log")
+        #_ax.set_yscale("log")
         _ax.grid(True, linewidth=0.3, alpha=0.7)
         _ax.legend(fontsize="small")
         _ax.spines[["right", "top"]].set_visible(False)
@@ -260,7 +260,7 @@ def _(frontier, mo, pl):
 @app.cell
 def _(frontier, mo, pathlib, pl):
     # Load pre-computed scores from parquet files written by score.py.
-    _run_root = pathlib.Path("/fs/ess/PAS2136/samuelstevens/saev/runs")
+    _run_root = pathlib.Path("<PATH_TO_STORAGE>/saev/runs")
     _shard_id = "a6be28a1"
 
     _dfs = []
@@ -300,6 +300,11 @@ def _(frontier, mo, pl, scores_df):
 
     {mo.as_html(_top.head(50))}
     """)
+    return
+
+
+@app.cell
+def _():
     return
 
 
