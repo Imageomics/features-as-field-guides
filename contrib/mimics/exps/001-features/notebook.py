@@ -25,7 +25,7 @@ def _():
 @app.cell
 def _(mo):
     mo.md("""
-    # 002-wider-saes: Pareto Selection
+    # 001-features: Pareto-optimal runs
 
     Pick Pareto-optimal runs (NMSE vs L0) from the `mimics-32k-384p-v1.6` sweep.
     """)

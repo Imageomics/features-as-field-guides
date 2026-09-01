@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.11"
+__generated_with = "0.24.0"
 app = marimo.App(width="full")
 
 
@@ -45,9 +45,9 @@ def _():
 
 @app.cell
 def _(pathlib):
-    run_root_dpath = pathlib.Path("/fs/ess/PAS2136/jbeattie/saev/runs")
+    run_root_dpath = pathlib.Path("<PATH_TO_STORAGE>/saev/runs")
     shards_dpath = pathlib.Path(
-        "/fs/scratch/PAS2136/jbeattie/saev/shards/93a3db75/"
+        "<PATH_TO_SCRATCH_STORAGE>/saev/shards/93a3db75/"
     )
 
     shard_id = "93a3db75"
@@ -95,9 +95,9 @@ def _(pathlib):
 @app.cell
 def _(mo):
     mo.md("""
-    # 002-wider-saes: Feature Viewer
+    # 001-features: DINO Feature Viewer
 
-    Browse SAE features scored for mimic pair discrimination. Select a run and task, then pick features by selectivity to view per-class activation grids.
+    Browse SAE features scored for selectivity and W1 distance. Select a run and task, then pick features by selectivity to view per-class activation grids.
     """)
     return
 
@@ -203,13 +203,14 @@ def _(
 
 
 
-    w1_selectivity_fig = plt.figure(figsize=(5, 5), dpi=1000)
-    plt.scatter(x = random_sample_df["w1_act"], y = random_sample_df["selectivity"])
+    w1_selectivity_fig = plt.figure(figsize=(5, 5), dpi=500)
+    plt.scatter(x = random_sample_df["w1_act"], y = random_sample_df["selectivity"], alpha=0.3, linewidths=0)
 
     plt.plot([random_sample_df["w1_act"].min(), random_sample_df["w1_act"].max()], [w1_y.min(), w1_y.max()], linestyle="--", color="red", linewidth=2)
     plt.xlabel("W1")
     plt.ylabel("Selectivity")
-    plt.title("W1 vs Selectivity")
+    plt.ylim(bottom=0, top=1)
+    plt.title(f"W1 vs Selectivity ({r"$R^2$"} = %.2f)" % r2_score(random_sample_df["selectivity"].reshape((-1, 1)), w1_y))
 
     #mo.hstack([w1_dist_fig, w1_selectivity_fig])
     w1_selectivity_fig
