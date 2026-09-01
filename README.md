@@ -1,29 +1,20 @@
-# saev - Sparse Auto-Encoders for Vision
+# Automatic Field Guides: Sparse Autoencoders and Heuristic Ranking for Dichotomous Key Learning
 
-![PyPI Downloads](https://static.pepy.tech/badge/saev)
 ![MIT License](https://img.shields.io/badge/License-MIT-efefef)
-![GitHub Repo stars](https://img.shields.io/github/stars/Imageomics/saev?style=flat&label=GitHub%20%E2%AD%90)
-[![DOI](https://zenodo.org/badge/874858975.svg)](https://doi.org/10.5281/zenodo.20753477)
 
-Training sparse autoencoders (SAEs) on vision transformers (ViTs), implemented in PyTorch.
+A fork of [saev](imageomics.github.io/saev/), modified for dichotomous key recovery and discovery in images of Heliconius butterfly mimics. 
 
-## Docs
+## Using this Repository
 
-- [Docs](https://imageomics.github.io/saev/api)
-- [Colab Notebook for SAE Inference](https://colab.research.google.com/github/Imageomics/saev/blob/main/examples/inference.ipynb)
-- [User guide](https://imageomics.github.io/saev/api/users/guide)
-- [API reference](https://imageomics.github.io/saev/api/api/saev/)
+All scripts for training SAEs, generating sparse features, scoring features for selectivity and W1 distance, and viewing dichotomous key candidates are located in `contrib/mimics/exps/001-features/`
 
-## Research
+First, generate ViT patch embedding shards using `generate_dino_shards.sh`. Then, train SAEs using `train_dino_saes.sh` and generate sparse features using `inference_dino.sh`. Finally, score features by running the following command:
 
-This framework was developed for a series of projects leveraging SAEs with vision models.
+```bash
+uv run contrib/mimics/launch.py score
+```
 
-- [Feb 2025] [Interpretable and Testable Vision Features via Sparse Autoencoders](https://arxiv.org/abs/2502.06755)
-- [Nov 2025] [Towards Open-Ended Visual Scientific Discovery with Sparse Autoencoders](https://arxiv.org/abs/2511.17735)
-
-Trained SAE checkpoints are available at:
-
-- [Huggingface Models](https://huggingface.co/collections/osunlp/sae-v-67ab8c4fdf179d117db28195)
+Visualization can be done using `uv run marimo edit contrib/mimics/exps/001-features/dino_viewer.py`.
 
 ## Citation
 
